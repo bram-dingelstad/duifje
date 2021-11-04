@@ -1,0 +1,8 @@
+#!/bin/bash
+
+denon run --allow-net --allow-env --allow-read --allow-write duifje.js
+
+# if [[ -f ./blog.md ]]; then
+#     mkdir -p ../bram.dingelstad.works/content/blog/test
+#     mv ./blog.md ../bram.dingelstad.works/content/blog/test/index.md
+# fi
