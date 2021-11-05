@@ -1,12 +1,6 @@
 import { Client } from 'https://deno.land/x/notion_sdk/src/mod.ts'
 import { listenAndServe } from 'https://deno.land/std@0.113.0/http/server.ts'
-import 'https://deno.land/x/dotenv/load.ts'
-
-import blog from './destinations/blog.js'
-import twitter from './destinations/twitter.js'
-import bbcode from './destinations/bbcode.js'
-import markdown from './destinations/markdown.js'
-import utils from './utils.js'
+// import 'https://deno.land/x/dotenv/load.ts'
 
 let env_variables = [
     'GITHUB_TOKEN',
@@ -24,12 +18,19 @@ for (let env of env_variables) {
         throw new Error('You forgot to set env variable ' + env)
 }
 
+import blog from './destinations/blog.js'
+import twitter from './destinations/twitter.js'
+import bbcode from './destinations/bbcode.js'
+import markdown from './destinations/markdown.js'
+import utils from './utils.js'
+
 // Set some constants for tokens and ID's
 const NOTION_TOKEN = Deno.env.get('NOTION_TOKEN')
 const NOTION_DATABASE_ID = Deno.env.get('NOTION_DATABASE_ID')
 
 // Initializing a client
 const notion = new Client({ auth: NOTION_TOKEN, notionVersion: '2021-08-16' })
+utils.init_s3()
 
 // TODO: Implement small backend API call that executes `run` and redirects `stdout` to page
 
@@ -100,11 +101,11 @@ async function run() {
 }
 
 listenAndServe(
-    ':8000', async (request) => {
+    ':8080', async (request) => {
         let path = request.url.substr(request.url.indexOf('/', 'https://'.length), request.url.length)
 
         if (!Deno.env.get('DRY_RUN') && ['iframe', 'empty'].indexOf(request.headers.get('sec-fetch-dest')) === -1)
-            return new Response('He flew away!')
+            return new Response(new Blob(['<h1>He flew away!</h1>'], {type: 'text/html'}))
 
         if (path === '/') {
             let html = `

@@ -2,17 +2,21 @@ import { sha1 } from 'https://denopkg.com/chiefbiiko/sha1/mod.ts'
 import { extension } from "https://deno.land/x/media_types/mod.ts"
 import { S3Bucket } from "https://deno.land/x/s3@0.4.1/mod.ts"
 
-const bucket = new S3Bucket(
-    {
-        accessKeyID: Deno.env.get('S3_KEY'),
-        secretKey: Deno.env.get('S3_SECRET'),
-        bucket: Deno.env.get('S3_BUCKET'),
-        region: Deno.env.get('S3_REGION'),
-        endpointURL: Deno.env.get('S3_ENDPOINT')
-    }
-)
-
+let bucket
 export default {
+    // initialize S3 connection
+    init_s3: function() {
+        bucket = new S3Bucket(
+            {
+                accessKeyID: Deno.env.get('S3_KEY'),
+                secretKey: Deno.env.get('S3_SECRET'),
+                bucket: Deno.env.get('S3_BUCKET'),
+                region: Deno.env.get('S3_REGION'),
+                endpointURL: Deno.env.get('S3_ENDPOINT')
+            }
+        )
+    },
+
     // Simple function for removing duplicates in a .filter generic function
     remove_duplicates: (entry, index, array) => array.indexOf(entry) === index,
 
