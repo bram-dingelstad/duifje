@@ -1,6 +1,6 @@
 import { Client } from 'https://deno.land/x/notion_sdk/src/mod.ts'
 import { listenAndServe } from 'https://deno.land/std@0.113.0/http/server.ts'
-// import 'https://deno.land/x/dotenv/load.ts'
+import 'https://deno.land/x/dotenv/load.ts'
 
 let env_variables = [
     'GITHUB_TOKEN',
@@ -75,8 +75,9 @@ async function run() {
             try {
                 let content = await module.render(row, page, children)
                 successful = successful && !!content
+
                 if (Deno.env.get('DRY_RUN'))
-                    console.debug('Doing dry run')
+                    console.debug('Doing dry run') || module.dry_run && (await module.dry_run(notion, row, page, content))
                 else
                     await module.publish(notion, row, page, content)
             } catch (error) {

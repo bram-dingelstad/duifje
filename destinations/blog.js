@@ -12,6 +12,7 @@ export default {
         let buffer = await this.generate_header(row, page)
 
         for (let child of children) {
+            console.log(child.type)
             switch(child.type) {
                 case 'heading_1':
                 case 'heading_2':
@@ -47,13 +48,21 @@ export default {
 
                 case 'image':
                     var url = await utils.upload_media_if_not_found(child.image[child.image.type].url)
-                    buffer += `\n<center><img style="flex: 1; max-width: 50%; margin: 0px 8px; margin-bottom: 8px" src="${url}" /></center>\n\n`
+                    buffer += `\n<center><img style="flex: 1; margin: 0px 8px; margin-bottom: 8px" src="${url}" />`
+                    if (child.image.caption)
+                        buffer += `<span>${child.image.caption.map(this.render_text)}</span>\n\n`
+                    buffer += '</center>\n\n'
                     break
 
                 case 'audio':
                     var url = await utils.upload_media_if_not_found(child.audio[child.audio.type].url)
                     buffer += `<audio controls><source src="${url}"></audio><br/>\n\n`
                     break
+
+                case 'code':
+                    buffer += `{{< highlight ${child.code.language} >}}\n`
+                    buffer += child.code.text.map(this.render_text)
+                    buffer += '{{< / highlight >}}\n\n'
 
                 // TODO: Implement video
 
@@ -78,7 +87,7 @@ export default {
                         buffer += '<center style="display: flex;">\n'
                         for (let image of images) {
                             let url = await utils.upload_media_if_not_found(image)
-                            buffer += `<img style="flex: 1; max-width: 50%; margin: 0px 8px" src="${url}" />\n`
+                            buffer += `<img style="flex: 1; margin: 0px 8px" src="${url}" />\n`
                         }
                         buffer += '</center>\n\n'
 
@@ -96,6 +105,9 @@ export default {
         return buffer
     },
     generate_header: async function(row, page) {
+        let url = !!row.cover
+            ? await utils.upload_media_if_not_found(row.cover[row.cover.type].url)
+            : ''
         return `---
 title: "${row.properties.Name.title.map(this.render_text).join('').replace(/"/g, '\\"')}"
 subtitle: "${row.properties.Subtitle.rich_text.map(this.render_text).join('').replace(/"/g, '\\"')}"
@@ -103,10 +115,16 @@ date: ${row.properties['Publish Date'].date.start}T00:00:00+01:00
 object_position: center
 tags: [${row.properties.Tag.multi_select.map(item => item.name)}]
 cover:
-    image: "${await utils.upload_media_if_not_found(row.cover.file.url)}"
+    image: "${url}"
 ---
 `
 
+    },
+
+    dry_run: async function(notion, row, page, content) {
+        // NOTE: This obviously only works in my home setup
+        await Deno.mkdir('../bram.dingelstad.works/content/blog/test', {recursive: true});
+        await Deno.writeTextFile('../bram.dingelstad.works/content/blog/test/index.md', content)
     },
     publish: async function(notion, row, page, content) {
         let slug = utils.generate_slug(page)

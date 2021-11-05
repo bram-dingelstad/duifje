@@ -3,8 +3,8 @@ import utils from '../utils.js'
 export default {
     tags: ['devlog'],
     render: async function (row, page, children) {
-        let buffer = row.cover
-            ? `[center][img width=750]${await utils.upload_media_if_not_found(row.cover.file.url)}[/img][/center]\n`
+        let buffer = !!row.cover
+            ? `[center][img width=750]${await utils.upload_media_if_not_found(row.cover[row.cover.type].url)}[/img][/center]\n`
             : ''
 
         for (let child of children) {
