@@ -2,7 +2,7 @@ duifje
 ------
 
 My little pet helper/project for delivering content to all different types of platforms.
-Check out my blogpost about it for more details!
+[Check out my blogpost about it for more details!](https://bram.dingelstad.works/blog/making-duifje-my-helpful-friend-for-sharing-fun-things/)
 
 Setup
 -----
@@ -35,4 +35,9 @@ GITHUB_TOKEN="<your github personal access token>"
 # Extra options
 DRY_RUN="true" # use this property to soft use the code without posting to platforms
 ```
+
+License
+-------
+
+See `LICENSE` for more details
 
