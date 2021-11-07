@@ -1,4 +1,4 @@
-import { TwitterApi as Twitter }  from '../../deno_twitter_api/mod.ts'
+import { TwitterApi as Twitter } from 'https://raw.githubusercontent.com/bram-dingelstad/deno_twitter_api/master/mod.ts'
 import { encode } from 'https://deno.land/std@0.82.0/encoding/base64.ts'
 
 import utils from '../utils.js'
@@ -14,10 +14,10 @@ export default {
     tags: ['tweet'],
     preflight: async function(info, context) {
         if (!context.has_release_date)
-            this.auto_assign_dates(info)
+            await this.auto_assign_dates(info)
 
         return true
-            && await !utils.has_error_messages(info)
+            && !(await utils.has_error_messages(info))
             && context.can_be_released
     },
     render: async function(info, context) {
@@ -26,8 +26,13 @@ export default {
         // Prepare context for twitter
         context.twitter = { media: [] }
 
-        let buffer = ''
-        for (let child of await utils.get_tree(notion, page)) {
+        let children = await utils.get_tree(notion, page)
+
+        let buffer = !!children.length
+            ? ''
+            : page.child_page.title
+
+        for (let child of children) {
             switch(child.type) {
                 case 'heading_1':
                 case 'heading_2':
@@ -73,6 +78,8 @@ export default {
 
     publish: async function(data, content, context) {
         // TODO: Implement threads
+        console.debug(`Publishing tweet "${data.page.child_page.title}"`)
+
         let response = await (new Twitter(TWITTER_AUTH)).post(
             'statuses/update.json',
             {

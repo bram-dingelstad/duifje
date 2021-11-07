@@ -44,7 +44,7 @@ async function run() {
         return console.debug('Tried re-running while I\'m already busy!')
     running = true
 
-    console.debug(`Doing a run at ${Date()}`)
+    console.debug('Doing a run at', new Date())
     let ready_pages = await notion.databases.query({
         database_id: NOTION_DATABASE_ID,
         filter: {
@@ -57,6 +57,7 @@ async function run() {
 
     for (let entry of ready_pages.results.reverse()) {
         let page = await notion.blocks.retrieve({ block_id: entry.id })
+        console.debug('Running', page.child_page.title)
         let data = {
             notion,
             entry,
@@ -78,8 +79,10 @@ async function run() {
         let successful = true
         for (let module of modules) {
             try {
-                if (!(await module.preflight(data, context)))
+                if (!(await module.preflight(data, context))) {
+                    successful = false
                     continue
+                }
 
                 let content = await module.render(data, context)
                 successful = successful && !!content
@@ -94,7 +97,7 @@ async function run() {
             }
         }
 
-        if (false && successful && !Deno.env.get('DRY_RUN'))
+        if (successful && !Deno.env.get('DRY_RUN'))
             await notion.pages.update({
                 page_id: entry.id,
                 properties: {
@@ -107,6 +110,7 @@ async function run() {
             })
     }
     running = false
+    console.debug('Done doing a run at', new Date())
 }
 
 if (!Deno.env.get('DRY_RUN'))
