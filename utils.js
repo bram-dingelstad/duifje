@@ -137,6 +137,26 @@ export default {
                 }
             }
         })
+    },
+
+    get_runtime_variable: async function(variable, notion) {
+        let database_id = Deno.env.get('NOTION_RUNTIME_VARIABLE_DATABASE_ID')
+        if (!database_id)
+            return
+
+        let response = await notion.databases.query({
+            database_id,
+            filter: {
+                property: 'Variable',
+                title: {
+                    equals: variable
+                }
+            }
+        })
+
+        return !!response.results.length
+            ? response.results[0].properties.Value.rich_text[0].plain_text
+            : null
     }
 }
 

@@ -6,6 +6,7 @@ let env_variables = [
     'GITHUB_TOKEN',
     'NOTION_TOKEN',
     'NOTION_DATABASE_ID',
+    'NOTION_RUNTIME_VARIABLE_DATABASE_ID',
     'S3_KEY',
     'S3_SECRET',
     'S3_BUCKET',
@@ -53,7 +54,7 @@ async function run() {
         }
     })
 
-    for (let entry of ready_pages.results) {
+    for (let entry of ready_pages.results.reverse()) {
         let page = await notion.blocks.retrieve({ block_id: entry.id })
         let data = {
             notion,
@@ -122,13 +123,28 @@ listenAndServe(
                     <meta charset="utf-8" />
                     <style>
                         /* TODO: Make this the same colorscheme as Notion with auto dark */
+                        * {
+                            box-sizing: border-box;
+                            padding: 0px;
+                            margin: 0px;
+                        }
+
                         body {
                             font-family: -apple-system, BlinkMacSystemFont, sans-serif;
                             background-color: #0C0D0B;
                             color: #D9D9D9;
                             padding: 0px;
                             margin: 0px;
-                            height: 100%;
+                            position: absolute;
+                            top: 0px;
+                            left: 0px;
+                            right: 0px;
+                            bottom: 0px;
+                        }
+
+                        html {
+                            margin: 0px;
+                            padding: 0px;
                         }
 
                         main {
@@ -137,6 +153,7 @@ listenAndServe(
                             margin: 18px;
                             border-radius: 18px;
                             height: calc(100% - 36px);
+                            position: relative;
                         }
 
                         main:after {
@@ -154,6 +171,10 @@ listenAndServe(
                             font-weight: bold;
                             float: right;
                             transition: .3s ease;
+                            margin-top: 10px;
+                            position: absolute;
+                            bottom: 10px;
+                            right: 10px;
                         }
 
                         button:hover:not(:disabled) {

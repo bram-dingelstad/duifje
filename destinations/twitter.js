@@ -1,6 +1,5 @@
 import { TwitterApi as Twitter }  from '../../deno_twitter_api/mod.ts'
 import { encode } from 'https://deno.land/std@0.82.0/encoding/base64.ts'
-import { delay } from 'https://deno.land/std@0.113.0/async/delay.ts'
 
 import utils from '../utils.js'
 
@@ -14,7 +13,8 @@ const TWITTER_AUTH = {
 export default {
     tags: ['tweet'],
     preflight: async function(info, context) {
-        // TODO: Implement auto assign date for tweets
+        if (!context.has_release_date)
+            this.auto_assign_dates(info)
 
         return true
             && await !utils.has_error_messages(info)
@@ -134,7 +134,7 @@ export default {
             )
 
             if (response.status < 200 || response.status > 299)
-                console.log(await response.text())
+                console.error(await response.text())
         }
 
         // Finalize media upload
@@ -149,6 +149,48 @@ export default {
         // TODO: Implement / test GIF/Video with "command STATUS"
 
         return media_id
+    },
+
+    auto_assign_dates: async function(info) {
+        let other_tweets = info.entries.filter(
+            entry => entry != info.entry && entry.properties.Type.multi_select.find(e => e.name === 'tweet')
+        )
+
+        let latest_tweet = other_tweets.length > 1 && other_tweets
+            .sort(
+                (tweetA, tweetB) => {
+                    let dateA = tweetA.properties['Publish Date'].date
+                    let dateB = tweetB.properties['Publish Date'].date
+
+
+                    return (
+                        dateA
+                        && dateB
+                        && dateA.start
+                        && dateB.start
+                        && new Date(dateA.start).getTime() > new Date(dateB.start).getTime()
+                    ) ? -1 : 1
+                }
+            )[0]
+
+        let content_spread = parseFloat(await utils.get_runtime_variable('Content spread', info.notion)) || 48
+        let release_date = (
+            latest_tweet
+            && latest_tweet.properties['Publish Date'].date
+            && new Date(new Date(latest_tweet.properties['Publish Date'].date.start).getTime() + content_spread * 3600 * 1000)) || new Date()
+
+        // Edit the publish date on the entity & local representations
+        info.entry.properties['Publish Date'].date = { start: release_date.toISOString() }
+        info.entries.find(entry => entry === info.entry).properties['Publish Date'] = info.entry.properties['Publish Date']
+
+        await info.notion.pages.update({
+            page_id: info.entry.id,
+            properties: {
+                'Publish Date': {
+                    date: info.entry.properties['Publish Date'].date
+                }
+            }
+        })
     },
 
     render_text: function(info) {
