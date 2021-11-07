@@ -2,9 +2,14 @@ import utils from '../utils.js'
 
 export default {
     tags: ['devlog'],
-    render: async function (row, page, children) {
-        let buffer = !!row.cover
-            ? `[center][img width=750]${await utils.upload_media_if_not_found(row.cover[row.cover.type].url)}[/img][/center]\n`
+    preflight: async function(info, context) {
+        return true
+            && await !utils.has_error_messages(info)
+            && context.can_be_released
+    },
+    render: async function ({entry, page, children}) {
+        let buffer = !!entry.cover
+            ? `[center][img width=750]${await utils.upload_media_if_not_found(entry.cover[entry.cover.type].url)}[/img][/center]\n`
             : ''
 
         for (let child of children) {
@@ -80,14 +85,14 @@ export default {
 
         return buffer
     },
-    publish: async function(notion, row, page, content) {
+    publish: async function({notion, entry, page}, content) {
         let file_name = utils.generate_slug(page) + '.bbcode.txt'
         let buffer = new TextEncoder().encode(content)
 
         console.debug(`Uploading "${file_name}" as temporary to S3`)
         let url = await utils.check_s3_or_upload(file_name, buffer, 'duifje-notion-files', true, true)
 
-        let files = (await utils.get_files_array(notion, row))
+        let files = (await utils.get_files_array(notion, entry))
             .filter(
                 entry => entry.name != 'BBCode for TIGSource'
             )
@@ -105,7 +110,7 @@ export default {
 
         await notion.pages.update(
             {
-                page_id: row.id,
+                page_id: entry.id,
                 properties: {
                     Files: { files }
                 }

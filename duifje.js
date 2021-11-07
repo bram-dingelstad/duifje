@@ -76,7 +76,7 @@ async function run() {
         let successful = true
         for (let module of modules) {
             try {
-                if (!(await module.preflight(data, context)) || entry.properties.Type.multi_select.find(type => type.name == 'failed'))
+                if (!(await module.preflight(data, context)))
                     continue
 
                 let content = await module.render(data, context)
@@ -208,4 +208,3 @@ listenAndServe(
         return new Response('Hello World\n')
     }
 )
-

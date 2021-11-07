@@ -2,7 +2,12 @@ import utils from '../utils.js'
 
 export default {
     tags: ['devlog'],
-    render: async function (row, page, children) {
+    preflight: async function(info, context) {
+        return true
+            && await !utils.has_error_messages(info)
+            && context.can_be_released
+    },
+    render: async function ({entry, page, children}) {
         let buffer = ''
         for (let child of children) {
             switch(child.type) {
@@ -77,14 +82,14 @@ export default {
 
         return buffer
     },
-    publish: async function(notion, row, page, content) {
+    publish: async function({notion, entry, page}, content) {
         let file_name = utils.generate_slug(page) + '.md.txt'
         let buffer = new TextEncoder().encode(content)
 
         console.debug(`Uploading "${file_name}" as temporary to S3`)
         let url = await utils.check_s3_or_upload(file_name, buffer, 'duifje-notion-files', true, true)
 
-        let files = (await utils.get_files_array(notion, row))
+        let files = (await utils.get_files_array(notion, entry))
             .filter(
                 entry => entry.name != 'Markdown file'
             )
@@ -102,7 +107,7 @@ export default {
 
         await notion.pages.update(
             {
-                page_id: row.id,
+                page_id: entry.id,
                 properties: {
                     Files: { files }
                 }

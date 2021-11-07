@@ -8,11 +8,15 @@ const GITHUB_TOKEN = Deno.env.get('GITHUB_TOKEN')
 
 export default {
     tags: ['blog', 'devlog'],
-    render: async function (row, page, children) {
-        let buffer = await this.generate_header(row, page)
+    preflight: async function(info, context) {
+        return true
+            && await !utils.has_error_messages(info)
+            && context.can_be_released
+    },
+    render: async function ({entry, page, children}) {
+        let buffer = await this.generate_header(entry, page)
 
         for (let child of children) {
-            console.log(child.type)
             switch(child.type) {
                 case 'heading_1':
                 case 'heading_2':
@@ -104,16 +108,16 @@ export default {
 
         return buffer
     },
-    generate_header: async function(row, page) {
-        let url = !!row.cover
-            ? await utils.upload_media_if_not_found(row.cover[row.cover.type].url)
+    generate_header: async function(entry, page) {
+        let url = !!entry.cover
+            ? await utils.upload_media_if_not_found(entry.cover[entry.cover.type].url)
             : ''
         return `---
-title: "${row.properties.Name.title.map(this.render_text).join('').replace(/"/g, '\\"')}"
-subtitle: "${row.properties.Subtitle.rich_text.map(this.render_text).join('').replace(/"/g, '\\"')}"
-date: ${row.properties['Publish Date'].date.start}T00:00:00+01:00
+title: "${entry.properties.Name.title.map(this.render_text).join('').replace(/"/g, '\\"')}"
+subtitle: "${entry.properties.Subtitle.rich_text.map(this.render_text).join('').replace(/"/g, '\\"')}"
+date: ${entry.properties['Publish Date'].date.start}T00:00:00+01:00
 object_position: center
-tags: [${row.properties.Tag.multi_select.map(item => item.name)}]
+tags: [${entry.properties.Tag.multi_select.map(item => item.name)}]
 cover:
     image: "${url}"
 ---
@@ -121,12 +125,12 @@ cover:
 
     },
 
-    dry_run: async function(notion, row, page, content) {
+    dry_run: async function({notion, entry, page}, content) {
         // NOTE: This obviously only works in my home setup
         await Deno.mkdir('../bram.dingelstad.works/content/blog/test', {recursive: true});
         await Deno.writeTextFile('../bram.dingelstad.works/content/blog/test/index.md', content)
     },
-    publish: async function(notion, row, page, content) {
+    publish: async function({notion, entry, page}, content) {
         let slug = utils.generate_slug(page)
         let file_buffer = encode(content)
         let commit_message = `Wrote/updated ${slug}`
