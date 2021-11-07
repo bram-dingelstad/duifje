@@ -1,5 +1,6 @@
 import { Client } from 'https://deno.land/x/notion_sdk/src/mod.ts'
 import { listenAndServe } from 'https://deno.land/std@0.113.0/http/server.ts'
+import { every15Minute } from 'https://deno.land/x/deno_cron/cron.ts';
 import 'https://deno.land/x/dotenv/load.ts'
 
 let env_variables = [
@@ -107,6 +108,9 @@ async function run() {
     }
     running = false
 }
+
+if (!Deno.env.get('DRY_RUN'))
+    every15Minute(run)
 
 listenAndServe(
     ':8080', async (request) => {
