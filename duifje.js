@@ -130,7 +130,17 @@ listenAndServe(
                     <title>Duifje's screen</title>
                     <meta charset="utf-8" />
                     <style>
-                        /* TODO: Make this the same colorscheme as Notion with auto dark */
+                        :root {
+                            --text-color: #37352F;
+                            --background-color: #FFFFFF;
+
+                        }
+                        @media (prefers-color-scheme: dark) {
+                            :root {
+                                --text-color: rgba(255,255,255,0.9);
+                                --background-color: #2F3437;
+                            }
+                        }
                         * {
                             box-sizing: border-box;
                             padding: 0px;
@@ -139,8 +149,8 @@ listenAndServe(
 
                         body {
                             font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-                            background-color: #0C0D0B;
-                            color: #D9D9D9;
+                            background-color: var(--background-color);
+                            color: var(--text-color);
                             padding: 0px;
                             margin: 0px;
                             position: absolute;
@@ -171,9 +181,9 @@ listenAndServe(
                         }
 
                         button {
-                            background-color: rgba(0, 0, 0, 0);/*#70848C;*/
-                            border: solid 4px #70848C;
-                            color: #D9D9D9;
+                            background-color: rgba(0, 0, 0, 0);
+                            border: solid 4px #3F5559;
+                            color: var(--text-color);
                             padding: 4px;
                             border-radius: 8px;
                             font-weight: bold;
@@ -186,16 +196,14 @@ listenAndServe(
                         }
 
                         button:hover:not(:disabled) {
-                            background-color: #70848C;
-                            color: #0C0D0B;
+                            background-color: #3F5559;
+                            color: var(--background-color);
                         }
 
                         button:active {
                             border-width: 2px;
                             margin: 2px;
-                            background-color: #1F2620;
-                            border-color: #1F2620;
-                            color: #D9D9D9;
+                            color: var(--background-color);
                         }
 
                         button:disabled {
