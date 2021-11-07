@@ -1,19 +1,32 @@
-// TODO: Switch to more generic twitter wrapper (deno_twitter_api)
-import { statusUpdate } from "https://kamekyame.github.io/twitter_api_client/api_v1/tweets/update.ts"
+// import { TwitterApi as Twitter }  from '../../deno_twitter_api/mod.ts'
+import SimpleTwitter from 'https://deno.land/x/simple_twitter_deno@0.05/simple_twitter_deno.ts'
+import { encode } from 'https://deno.land/std@0.82.0/encoding/base64.ts'
+import { delay } from 'https://deno.land/std@0.113.0/async/delay.ts'
+
+import utils from '../utils.js'
 
 const TWITTER_AUTH = {
-    consumerKey: Deno.env.get('TWITTER_CONSUMER_KEY'),
-    consumerSecret: Deno.env.get('TWITTER_CONSUMER_SECRET'),
-    token: Deno.env.get('TWITTER_ACCESS_TOKEN'),
-    tokenSecret: Deno.env.get('TWITTER_ACCESS_TOKEN_SECRET')
+    consumerApiKey: Deno.env.get('TWITTER_CONSUMER_KEY'),
+    consumerApiSecret: Deno.env.get('TWITTER_CONSUMER_SECRET'),
+    accessToken: Deno.env.get('TWITTER_ACCESS_TOKEN'),
+    accessTokenSecret: Deno.env.get('TWITTER_ACCESS_TOKEN_SECRET')
 }
 
 export default {
     tags: ['tweet'],
+    preflight: async function(info, context) {
+        return true
+            // && await !utils.has_error_messages(info)
+            // && context.can_be_released
+    },
+    render: async function(info, context) {
+        let {entry, page, notion} = info
 
-    render: async function(row, page, children) {
+        // Prepare context for twitter
+        context.twitter = { media: [] }
+
         let buffer = ''
-        for (let child of children) {
+        for (let child of await utils.get_tree(notion, page)) {
             switch(child.type) {
                 case 'heading_1':
                 case 'heading_2':
@@ -22,8 +35,7 @@ export default {
                 case 'heading_5':
                 case 'heading_6':
                 case 'paragraph':
-                case 'callout':
-                    buffer += child.paragraph.text.map(this.render_text).join('')
+                    buffer += child.paragraph.text.map(this.render_text).join('') + '\n\n'
                     break
 
                 case 'numbered_list_item':
@@ -39,10 +51,9 @@ export default {
                 // TODO: Implement <hr> breaks for manual tweet splitting
 
                 // TODO: Implement media & video
-                // case 'image':
-                //     var url = await utils.upload_media_if_not_found(child.image[child.image.type].url)
-                //     buffer += `\n<center><img style="flex: 1; max-width: 50%; margin: 0px 8px; margin-bottom: 8px" src="${url}" /></center>\n\n`
-                //     break
+                case 'image':
+                    await this.upload_media_chunked(child.image[child.image.type].url, context)
+                    break
                 //
                 // case 'audio':
                 //     var url = await utils.upload_media_if_not_found(child.audio[child.audio.type].url)
@@ -82,16 +93,150 @@ export default {
         }
         buffer = buffer.trim()
         // TODO: Implement auto splitter or manual split for threads
-        if (buffer.length >= 280)
-            return console.debug('Went over limit for a tweet') || false
+        if (buffer.length >= 280) {
+            utils.add_error_message(
+                `You went past the maximum amount of characters (${buffer.length}/280)`,
+                info
+            )
+            return false
+        }
 
         return buffer
     },
 
-    publish: async function(notion, row, page, content) {
+    publish: async function(data, content, context) {
         // TODO: Implement threads
         // TODO: Implement media
-        await statusUpdate(TWITTER_AUTH, { status: content })
+        return
+        console.log(context.twitter)
+        // let response = await (new Twitter(TWITTER_AUTH)).post(
+        //     'statuses/update.json',
+        //     {
+        //         status: content,
+        //         media_ids: context.twitter.media
+        //     }
+        // )
+    },
+
+    upload_media: async function(url, context) {
+        let blob = await (await fetch(url)).blob()
+        let buffer = new Uint8Array(await blob.arrayBuffer())
+        let client = new Twitter(TWITTER_AUTH)
+        client.baseUrl = 'https://upload.twitter.com/1.1/'
+
+        let body = new FormData()
+        // body.set('media_category', 'tweet_image')
+        body.set('media[]', new Blob([buffer], { type: 'application/octet-stream' }), 'duifje.jpg')
+        // body.set('media', blob, 'duifje.jpg')
+
+        var response = await client.post(
+            'media/upload.json',
+            {
+                media_category: 'tweet_image',
+
+                // contentType: 'multipart/form-data',
+                body
+            }
+        )
+        console.log(response.status)
+        let data = await response.json()
+        let { media_id_string: media_id } = data
+        console.log(data)
+
+        console.debug(`Got "${media_id}" back as media_id`)
+        context.twitter.media.push(media_id)
+    },
+
+    // TODO: Get this to work
+    upload_media_chunked: async function(url, context) {
+        const CHUNK_SIZE = 1000000
+        let blob = await (await fetch(url)).blob()
+        let buffer = new Uint8Array(await blob.arrayBuffer())
+
+        console.log('upload_media url & context', url, context)
+
+        let client = new Twitter(TWITTER_AUTH)
+        client.baseUrl = 'https://upload.twitter.com/1.1/'
+
+        // Initialize the uploading process
+        var response = await client.post(
+            'media/upload.json',
+            {
+                command: 'INIT',
+                total_bytes: blob.size,
+                media_type: blob.type
+            }
+        )
+        let data = await response.json()
+        let { media_id_string: media_id } = data
+        console.debug(`Got "${media_id}" back as media_id`)
+        context.twitter.media.push(media_id)
+
+        let amount_of_slices = Math.max(Math.round(blob.size / CHUNK_SIZE), 1)
+        console.debug(`Uploading in ${amount_of_slices} slices with total size of ${blob.size}`)
+
+        // Prepare media slices
+        let slices = []
+        for (let index = 0; index < amount_of_slices; index++) {
+            let start = index * CHUNK_SIZE
+            let end = (index + 1) * CHUNK_SIZE
+
+            if (end > blob.size)
+                end = blob.size
+
+            slices.push(buffer.slice(start, end))
+        }
+
+        console.debug('Slices are same size:', slices.map(slice => slice.byteLength).reduce((a, t) => a += t, 0) === blob.size)
+        // Append media buffer slices
+        for (let slice of slices) {
+            console.debug(`Uploading slice #${slices.indexOf(slice) + 1}`)
+
+            let body = new FormData()
+            body.set('media', new Blob([slice], { type: 'application/octet-stream' }), 'duifje.jpg')
+
+            console.log(body)
+
+            var response = await client.post(
+                'media/upload.json',
+                {
+                    command: 'APPEND',
+                    media_id: media_id,
+                    segment_index: slices.indexOf(slice),
+
+                    // contentType: 'multipart/form-data',
+                    body
+                }
+            )
+
+            console.log(response.status)
+            if (response.status < 200 || response.status > 299)
+                console.log(await response.text())
+        }
+
+        // Finalize media upload
+        var response = await client.post(
+            'media/upload.json',
+            {
+                command: 'FINALIZE',
+                media_id: media_id
+            }
+        )
+        console.log(await response.json())
+
+        var response = await client.get(
+            'media/upload.json',
+            {
+                command: 'STATUS',
+                media_id: media_id
+            }
+        )
+
+        console.log('=========')
+        console.log(await response.json())
+        console.log('=========')
+
+
     },
 
     render_text: function(info) {

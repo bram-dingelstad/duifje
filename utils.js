@@ -87,6 +87,56 @@ export default {
                 child.children = await this.get_tree(notion, child)
         }
         return children
+    },
+
+    // Check if an article has error messages in it
+    has_error_messages: async function({notion, page}) {
+        let children = await this.get_tree(notion, page)
+        let error_message = children
+            .find(block => block.type == 'callout' && block.callout.icon.emoji == '⚠️')
+        if (error_message) {
+            console.error('Found error message in content 👇')
+            console.error(error_message.callout.text.map(e => e.text.content).join(' '))
+        }
+        return !!error_message
+    },
+
+    // Add an error message to an article
+    add_error_message: async function(message, {notion, page}) {
+        console.error('Adding error to page 👇')
+        console.error(message)
+
+        let children = [
+            {
+                type: "callout",
+                callout: {
+                    text: [
+                        { text: { content: message } },
+                        { text: { content: `\n\nAdded on ${new Date()}` } }
+                    ],
+                    icon: { type: "emoji", emoji: "⚠️" }
+                }
+            }
+        ]
+
+        // TODO: Prepend instead of append
+        await notion.blocks.children.append(
+            {
+                block_id: page.id,
+                children
+            }
+        )
+
+        await notion.pages.update({
+            page_id: page.id,
+            properties: {
+                Status: {
+                    select: {
+                        name: 'Failed to post'
+                    }
+                }
+            }
+        })
     }
 }
 

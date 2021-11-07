@@ -53,42 +53,48 @@ async function run() {
         }
     })
 
-    for (let row of ready_pages.results) {
-        let page = await notion.blocks.retrieve({ block_id: row.id })
-        let children = await utils.get_tree(notion, page)
-
-        let date = row.properties['Publish Date'].date
-        if (!(date && new Date(date.start).getTime() < Date.now())) {
-            let title = row.properties.Name.title[0].text.content
-            console.debug(`Can't post "${title}" yet, because it's not scheduled to release`)
-            continue
+    for (let entry of ready_pages.results) {
+        let page = await notion.blocks.retrieve({ block_id: entry.id })
+        let data = {
+            notion,
+            entry,
+            entries: ready_pages.results,
+            page
         }
+        let context = {}
+
+        let date = entry.properties['Publish Date'].date
+        context.has_release_date = !!date
+        context.can_be_released = context.has_release_date && new Date(date.start).getTime() < Date.now()
 
         let modules = [blog, twitter, bbcode, markdown].filter(
                 module => module.tags.filter(
-                    tag => row.properties.Type.multi_select.map(type => type.name).indexOf(tag) !== -1
+                    tag => entry.properties.Type.multi_select.map(type => type.name).indexOf(tag) !== -1
                 ).length != 0
             )
 
         let successful = true
         for (let module of modules) {
             try {
-                let content = await module.render(row, page, children)
+                if (!(await module.preflight(data, context)) || entry.properties.Type.multi_select.find(type => type.name == 'failed'))
+                    continue
+
+                let content = await module.render(data, context)
                 successful = successful && !!content
 
                 if (Deno.env.get('DRY_RUN'))
-                    console.debug('Doing dry run') || module.dry_run && (await module.dry_run(notion, row, page, content))
+                    console.debug('Doing dry run') || module.dry_run && (await module.dry_run(data, content, context))
                 else
-                    await module.publish(notion, row, page, content)
+                    await module.publish(data, content, context)
             } catch (error) {
                 console.error('Something went wrong! 🙀')
                 console.error(error)
             }
         }
 
-        if (successful && !Deno.env.get('DRY_RUN'))
+        if (false && successful && !Deno.env.get('DRY_RUN'))
             await notion.pages.update({
-                page_id: row.id,
+                page_id: entry.id,
                 properties: {
                     Status: {
                         select: {
@@ -105,8 +111,8 @@ listenAndServe(
     ':8080', async (request) => {
         let path = request.url.substr(request.url.indexOf('/', 'https://'.length), request.url.length)
 
-        if (!Deno.env.get('DRY_RUN') && ['iframe', 'empty'].indexOf(request.headers.get('sec-fetch-dest')) === -1)
-            return new Response(new Blob(['<h1>He flew away!</h1>'], {type: 'text/html'}))
+        // if (!Deno.env.get('DRY_RUN') && ['iframe', 'empty'].indexOf(request.headers.get('sec-fetch-dest')) === -1)
+        //     return new Response(new Blob(['<h1>He flew away!</h1>'], {type: 'text/html'}))
 
         if (path === '/') {
             let html = `
@@ -120,6 +126,9 @@ listenAndServe(
                             font-family: -apple-system, BlinkMacSystemFont, sans-serif;
                             background-color: #0C0D0B;
                             color: #D9D9D9;
+                            padding: 0px;
+                            margin: 0px;
+                            height: 100%;
                         }
 
                         main {
@@ -127,6 +136,7 @@ listenAndServe(
                             padding: 18px;
                             margin: 18px;
                             border-radius: 18px;
+                            height: calc(100% - 36px);
                         }
 
                         main:after {
