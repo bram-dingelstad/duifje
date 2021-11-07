@@ -109,6 +109,7 @@ async function run() {
                 }
             })
     }
+    last_ran = new Date(Date.now())
     running = false
     console.debug('Done doing a run at', new Date())
 }
@@ -238,7 +239,6 @@ listenAndServe(
         } else if (path === '/run') {
             console.debug('Received request to do a run!')
             await run()
-            last_ran = new Date(Date.now())
             return new Response('Done!')
         }
 
