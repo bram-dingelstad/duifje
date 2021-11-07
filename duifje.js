@@ -120,8 +120,8 @@ listenAndServe(
     ':8080', async (request) => {
         let path = request.url.substr(request.url.indexOf('/', 'https://'.length), request.url.length)
 
-        // if (!Deno.env.get('DRY_RUN') && ['iframe', 'empty'].indexOf(request.headers.get('sec-fetch-dest')) === -1)
-        //     return new Response(new Blob(['<h1>He flew away!</h1>'], {type: 'text/html'}))
+        if (!Deno.env.get('DRY_RUN') && ['iframe', 'empty'].indexOf(request.headers.get('sec-fetch-dest')) === -1)
+            return new Response(new Blob(['<h1>He flew away!</h1>'], {type: 'text/html'}))
 
         if (path === '/') {
             let html = `
