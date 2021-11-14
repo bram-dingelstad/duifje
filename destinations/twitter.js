@@ -96,7 +96,7 @@ export default {
         for (let tweet of content) {
             console.debug(`Using "${reply_id}" as ID for posting to`)
 
-            let response = await (new Twitter(TWITTER_AUTH)).post(
+            let response = await new Twitter(TWITTER_AUTH).post(
                 'statuses/update.json',
                 {
                     status: tweet,
@@ -109,6 +109,7 @@ export default {
             )
 
             reply_id = (await response.json()).id_str
+            i += 1
         }
     },
 
