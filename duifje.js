@@ -55,7 +55,9 @@ async function run() {
         }
     })
 
-    for (let entry of ready_pages.results.reverse()) {
+
+    ready_pages.results.reverse()
+    for (let entry of ready_pages.results) {
         let page = await notion.blocks.retrieve({ block_id: entry.id })
         console.debug('Running', page.child_page.title)
         let data = {
@@ -76,7 +78,7 @@ async function run() {
                 ).length != 0
             )
 
-        let successful = true
+        let successful = !Deno.env.get('DRY_RUN')
         for (let module of modules) {
             try {
                 if (!(await module.preflight(data, context))) {
@@ -94,10 +96,16 @@ async function run() {
             } catch (error) {
                 console.error('Something went wrong! 🙀')
                 console.error(error)
+
+                utils.add_error_message(
+                    `Something went wrong trying to post:\n"${error}"`,
+                    data
+                )
+                successful = false
             }
         }
 
-        if (successful && !Deno.env.get('DRY_RUN'))
+        if (successful)
             await notion.pages.update({
                 page_id: entry.id,
                 properties: {

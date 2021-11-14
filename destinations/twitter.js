@@ -22,6 +22,7 @@ export default {
     },
     render: async function(info, context) {
         let {entry, page, notion} = info
+        let tweets = []
 
         // Prepare context for twitter
         context.twitter = { media: [] }
@@ -46,7 +47,6 @@ export default {
 
                 case 'numbered_list_item':
                 case 'bulleted_list_item':
-                    // TODO: Implement counting and sub-items
                     let last_of_list = children[children.indexOf(child) + 1].type != child.type
                     buffer += '* ' + child[child.type].text.map(this.render_text).join('') + '\n'
 
@@ -54,7 +54,18 @@ export default {
                         buffer += '\n'
                     break
 
-                // TODO: Implement <hr> breaks for manual tweet splitting
+                case 'divider':
+                    buffer = buffer.trim()
+                    if (buffer.length >= 280) {
+                        utils.add_error_message(
+                            `You went past the maximum amount of characters (${buffer.length}/280) in tweet #${tweets.length + 1}`,
+                            info
+                        )
+                        return false
+                    }
+                    tweets.push(buffer)
+                    buffer = ''
+                    break
 
                 case 'image':
                     context.twitter.media.push(await this.upload_media_chunked(child.image[child.image.type].url))
@@ -64,29 +75,41 @@ export default {
             }
         }
         buffer = buffer.trim()
-        // TODO: Implement auto splitter or manual split for threads
         if (buffer.length >= 280) {
             utils.add_error_message(
-                `You went past the maximum amount of characters (${buffer.length}/280)`,
+                `You went past the maximum amount of characters (${buffer.length}/280) in tweet #${tweets.length + 1}`,
                 info
             )
             return false
         }
 
-        return buffer
+        tweets.push(buffer)
+
+        return tweets
     },
 
     publish: async function(data, content, context) {
-        // TODO: Implement threads
         console.debug(`Publishing tweet "${data.page.child_page.title}"`)
 
-        let response = await (new Twitter(TWITTER_AUTH)).post(
-            'statuses/update.json',
-            {
-                status: content,
-                media_ids: context.twitter.media
-            }
-        )
+        let i = 0
+        let reply_id
+        for (let tweet of content) {
+            console.debug(`Using "${reply_id}" as ID for posting to`)
+
+            let response = await (new Twitter(TWITTER_AUTH)).post(
+                'statuses/update.json',
+                {
+                    status: tweet,
+                    // TODO: Make the media indexable per tweet
+                    //       assuming even spread of 4 per tweet for now
+                    media_ids: context.twitter.media.slice(i * 4, i * 4 + 4),
+                    auto_populate_reply_metadata: content.length > 1,
+                    in_reply_to_status_id: reply_id
+                }
+            )
+
+            reply_id = (await response.json()).id_str
+        }
     },
 
     upload_media_chunked: async function(url) {
@@ -163,7 +186,7 @@ export default {
             entry => entry != info.entry && entry.properties.Type.multi_select.find(e => e.name === 'tweet')
         )
 
-        let latest_tweet = other_tweets.length > 1 && other_tweets
+        let latest_tweet = other_tweets.length >= 1 && other_tweets
             .sort(
                 (tweetA, tweetB) => {
                     let dateA = tweetA.properties['Publish Date'].date
