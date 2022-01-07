@@ -7,10 +7,12 @@ export default {
             && !(await utils.has_error_messages(info))
             && context.can_be_released
     },
-    render: async function ({entry, page, children}) {
+    render: async function ({entry, page}) {
+        let children = await utils.get_tree(notion, page)
         let buffer = !!entry.cover
             ? `[center][img width=750]${await utils.upload_media_if_not_found(entry.cover[entry.cover.type].url)}[/img][/center]\n`
             : ''
+
 
         for (let child of children) {
             switch(child.type) {
