@@ -14,7 +14,7 @@ export default {
             && !(await utils.has_error_messages(info))
             && context.can_be_released
     },
-    render: async function ({entry, page}) {
+    render: async function ({entry, page, notion}) {
         let children = await utils.get_tree(notion, page)
         let buffer = await this.generate_header(entry, page)
 
