@@ -9,8 +9,9 @@ const GITHUB_TOKEN = Deno.env.get('GITHUB_TOKEN')
 export default {
     tags: ['blog', 'devlog'],
     preflight: async function(info, context) {
+        console.log(context)
         return true
-            && await !utils.has_error_messages(info)
+            && !(await utils.has_error_messages(info))
             && context.can_be_released
     },
     render: async function ({entry, page, children}) {

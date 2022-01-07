@@ -56,7 +56,7 @@ export default {
 
                 case 'divider':
                     buffer = buffer.trim()
-                    if (buffer.length >= 280) {
+                    if (buffer.length > 280) {
                         utils.add_error_message(
                             `You went past the maximum amount of characters (${buffer.length}/280) in tweet #${tweets.length + 1}`,
                             info
@@ -90,6 +90,7 @@ export default {
 
     publish: async function(data, content, context) {
         console.debug(`Publishing tweet "${data.page.child_page.title}"`)
+        console.debug('Content: ', content)
 
         let i = 0
         let reply_id

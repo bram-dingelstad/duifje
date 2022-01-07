@@ -1,6 +1,6 @@
 import { Client } from 'https://deno.land/x/notion_sdk/src/mod.ts'
 import { listenAndServe } from 'https://deno.land/std@0.113.0/http/server.ts'
-import { every15Minute } from 'https://deno.land/x/deno_cron/cron.ts';
+import { every15Minute, stop } from 'https://deno.land/x/deno_cron/cron.ts';
 import 'https://deno.land/x/dotenv/load.ts'
 
 let env_variables = [
@@ -83,11 +83,14 @@ async function run() {
             try {
                 if (!(await module.preflight(data, context))) {
                     successful = false
+                    console.debug('Failed preflight check! 🛬🚩')
                     continue
                 }
 
                 let content = await module.render(data, context)
                 successful = successful && !!content
+
+                console.log(content)
 
                 if (Deno.env.get('DRY_RUN'))
                     console.debug('Doing dry run') || module.dry_run && (await module.dry_run(data, content, context))
@@ -96,6 +99,7 @@ async function run() {
             } catch (error) {
                 console.error('Something went wrong! 🙀')
                 console.error(error)
+                console.trace()
 
                 utils.add_error_message(
                     `Something went wrong trying to post:\n"${error}"`,
@@ -117,19 +121,23 @@ async function run() {
                 }
             })
     }
-    last_ran = new Date(Date.now())
+    last_ran = new Date()
     running = false
     console.debug('Done doing a run at', new Date())
 }
 
 if (!Deno.env.get('DRY_RUN'))
     every15Minute(run)
+else
+    stop()
+
+console.debug('Started! 🙌')
 
 listenAndServe(
-    ':8080', async (request) => {
+    ':8080', async request => {
         let path = request.url.substr(request.url.indexOf('/', 'https://'.length), request.url.length)
 
-        if (!Deno.env.get('DRY_RUN') && ['iframe', 'empty'].indexOf(request.headers.get('sec-fetch-dest')) === -1)
+        if (!Deno.env.get('UNSECURE_WEB_FRONTEND') && ['iframe', 'empty'].indexOf(request.headers.get('sec-fetch-dest')) === -1)
             return new Response(new Blob(['<h1>He flew away!</h1>'], {type: 'text/html'}))
 
         if (path === '/') {

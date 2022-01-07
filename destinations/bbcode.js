@@ -4,7 +4,7 @@ export default {
     tags: ['devlog'],
     preflight: async function(info, context) {
         return true
-            && await !utils.has_error_messages(info)
+            && !(await utils.has_error_messages(info))
             && context.can_be_released
     },
     render: async function ({entry, page, children}) {
